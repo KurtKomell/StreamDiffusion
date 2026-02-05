@@ -33,6 +33,10 @@
     pageContent = settings.page_content;
     console.log(pipelineParams);
     toggleQueueChecker(true);
+    // Automatisch die Bildgenerierung starten
+    setTimeout(() => {
+      toggleLcmLive();
+    }, 500);
   }
   function toggleQueueChecker(start: boolean) {
     queueCheckerRunning = start && maxQueueSize > 0;

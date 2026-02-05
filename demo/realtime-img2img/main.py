@@ -174,6 +174,19 @@ app = App(config, pipeline).app
 
 if __name__ == "__main__":
     import uvicorn
+    import webbrowser
+    import threading
+
+    # Funktion zum Öffnen des Browsers nach einer kurzen Verzögerung
+    def open_browser():
+        time.sleep(1.5)  # Warte bis der Server gestartet ist
+        url = f"http://{config.host}:{config.port}"
+        webbrowser.open(url)
+        print(f"Browser geöffnet: {url}")
+
+    # Starte Browser in einem separaten Thread
+    browser_thread = threading.Thread(target=open_browser, daemon=True)
+    browser_thread.start()
 
     uvicorn.run(
         "main:app",
