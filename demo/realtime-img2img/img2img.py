@@ -56,6 +56,14 @@ class Pipeline:
             field="textarea",
             id="prompt",
         )
+        steps: int = Field(
+            4,
+            ge=1,
+            le=30,
+            title="Steps",
+            field="range",
+            id="steps",
+        )
         # negative_prompt: str = Field(
         #     default_negative_prompt,
         #     title="Negative Prompt",
@@ -95,6 +103,7 @@ class Pipeline:
         )
 
         self.last_prompt = default_prompt
+        self.last_steps = 50
         self.stream.prepare(
             prompt=default_prompt,
             negative_prompt=default_negative_prompt,
@@ -103,6 +112,19 @@ class Pipeline:
         )
 
     def predict(self, params: "Pipeline.InputParams") -> Image.Image:
+        # Get steps parameter or use default
+        steps = getattr(params, 'steps', 50)
+        
+        # Update num_inference_steps if changed
+        if not hasattr(self, 'last_steps') or self.last_steps != steps:
+            self.stream.prepare(
+                prompt=params.prompt if params.prompt else default_prompt,
+                negative_prompt=default_negative_prompt,
+                num_inference_steps=steps,
+                guidance_scale=1.2,
+            )
+            self.last_steps = steps
+        
         image_tensor = self.stream.preprocess_image(params.image)
         output_image = self.stream(image=image_tensor, prompt=params.prompt)
 

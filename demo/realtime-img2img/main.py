@@ -1,3 +1,7 @@
+import warnings
+# Unterdrücke FutureWarnings von diffusers
+warnings.filterwarnings('ignore', category=FutureWarning, module='diffusers')
+
 from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -150,6 +154,24 @@ class App:
                 page_content = markdown2.markdown(info.page_content)
 
             input_params = pipeline.InputParams.schema()
+            
+            # Debug: Print schema to console
+            if self.args.debug:
+                import json
+                print("\n" + "="*50)
+                print("INPUT PARAMS SCHEMA")
+                print("="*50)
+                print(json.dumps(input_params, indent=2))
+                print("="*50 + "\n")
+                
+                # Zeige auch die properties an
+                if "properties" in input_params:
+                    print("Available fields:")
+                    for key, value in input_params["properties"].items():
+                        field_type = value.get("field", value.get("type", "unknown"))
+                        print(f"  - {key}: {field_type}")
+                    print("="*50 + "\n")
+            
             return JSONResponse(
                 {
                     "info": info_schema,

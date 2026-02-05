@@ -17,6 +17,9 @@ class Args(NamedTuple):
     debug: bool
     acceleration: str
     engine_dir: str
+    width: int
+    height: int
+    upscale_factor: float
 
     def pretty_print(self):
         print("\n")
@@ -103,6 +106,25 @@ parser.add_argument(
     type=str,
     default=ENGINE_DIR,
     help="Engine Dir",
+)
+parser.add_argument(
+    "--width",
+    type=int,
+    default=512,
+    help="Image width",
+)
+parser.add_argument(
+    "--height",
+    type=int,
+    default=512,
+    help="Image height",
+)
+parser.add_argument(
+    "--upscale-factor",
+    dest="upscale_factor",
+    type=float,
+    default=1.0,
+    help="Upscale factor (1.0 = no upscaling)",
 )
 parser.set_defaults(taesd=USE_TAESD)
 config = Args(**vars(parser.parse_args()))

@@ -16,8 +16,8 @@
     type="range"
     id={params.id}
     name={params.id}
-    min={params?.min}
-    max={params?.max}
+    min={params?.min ?? params?.minimum}
+    max={params?.max ?? params?.maximum}
     step={params?.step ?? 1}
   />
   <input

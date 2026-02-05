@@ -185,7 +185,11 @@ class StreamDiffusion:
         # make sub timesteps list based on the indices in the t_list list and the values in the timesteps list
         self.sub_timesteps = []
         for t in self.t_list:
-            self.sub_timesteps.append(self.timesteps[t])
+            # Clamp index to valid range to prevent IndexError
+            clamped_t = min(t, len(self.timesteps) - 1)
+            if clamped_t != t:
+                print(f"Warning: t_index {t} out of bounds for timesteps length {len(self.timesteps)}, clamping to {clamped_t}")
+            self.sub_timesteps.append(self.timesteps[clamped_t])
 
         sub_timesteps_tensor = torch.tensor(
             self.sub_timesteps, dtype=torch.long, device=self.device
