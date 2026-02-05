@@ -13,6 +13,8 @@ const initStatus: LCMLiveStatus = LCMLiveStatus.DISCONNECTED;
 
 export const lcmLiveStatus = writable<LCMLiveStatus>(initStatus);
 export const streamId = writable<string | null>(null);
+export const frameTick = writable<number>(0);
+export const aiFps = writable<number>(0);
 
 let websocket: WebSocket | null = null;
 export const lcmLiveActions = {
@@ -45,11 +47,15 @@ export const lcmLiveActions = {
                             break;
                         case "send_frame":
                             lcmLiveStatus.set(LCMLiveStatus.SEND_FRAME);
+                            frameTick.update((n) => n + 1);
                             const streamData = getSreamdata();
                             websocket?.send(JSON.stringify({ status: "next_frame" }));
                             for (const d of streamData) {
                                 this.send(d);
                             }
+                            break;
+                        case "fps":
+                            aiFps.set(Number(data.value) || 0);
                             break;
                         case "wait":
                             lcmLiveStatus.set(LCMLiveStatus.WAIT);
@@ -58,12 +64,16 @@ export const lcmLiveActions = {
                             console.log("timeout");
                             lcmLiveStatus.set(LCMLiveStatus.TIMEOUT);
                             streamId.set(null);
+                            frameTick.set(0);
+                            aiFps.set(0);
                             reject(new Error("timeout"));
                             break;
                         case "error":
                             console.log(data.message);
                             lcmLiveStatus.set(LCMLiveStatus.DISCONNECTED);
                             streamId.set(null);
+                            frameTick.set(0);
+                            aiFps.set(0);
                             reject(new Error(data.message));
                             break;
                     }
@@ -73,6 +83,8 @@ export const lcmLiveActions = {
                 console.error(err);
                 lcmLiveStatus.set(LCMLiveStatus.DISCONNECTED);
                 streamId.set(null);
+                frameTick.set(0);
+                aiFps.set(0);
                 reject(err);
             }
         });
@@ -95,5 +107,7 @@ export const lcmLiveActions = {
         }
         websocket = null;
         streamId.set(null);
+        frameTick.set(0);
+        aiFps.set(0);
     },
 };

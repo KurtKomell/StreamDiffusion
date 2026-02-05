@@ -11,6 +11,37 @@ export const mediaDevices = writable<MediaDeviceInfo[]>([]);
 export const mediaStreamStatus = writable(MediaStreamStatusEnum.INIT);
 export const mediaStream = writable<MediaStream | null>(null);
 
+const isSecureCameraContext = () => {
+    if (typeof window === "undefined") return true;
+    if (window.isSecureContext) return true;
+    const host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1";
+};
+
+const buildVideoConstraints = (mediaDevicedID?: string) => {
+    if (mediaDevicedID) {
+        return {
+            width: 1024,
+            height: 1024,
+            deviceId: { exact: mediaDevicedID },
+        };
+    }
+    return {
+        width: 1024,
+        height: 1024,
+        facingMode: "user",
+    };
+};
+
+const ensureCameraAvailable = () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Camera access is not available in this browser or context.");
+    }
+    if (!isSecureCameraContext()) {
+        throw new Error("Camera access requires HTTPS or localhost. Open the app on https:// or localhost.");
+    }
+};
+
 export const mediaStreamActions = {
     async enumerateDevices() {
         // console.log("Enumerating devices");
@@ -24,23 +55,24 @@ export const mediaStreamActions = {
             });
     },
     async start(mediaDevicedID?: string) {
+        ensureCameraAvailable();
         const constraints = {
             audio: false,
-            video: {
-                width: 1024, height: 1024, deviceId: mediaDevicedID
-            }
+            video: buildVideoConstraints(mediaDevicedID)
         };
 
         await navigator.mediaDevices
             .getUserMedia(constraints)
-            .then((stream) => {
+            .then(async (stream) => {
                 mediaStreamStatus.set(MediaStreamStatusEnum.CONNECTED);
                 mediaStream.set(stream);
+                await mediaStreamActions.enumerateDevices();
             })
             .catch((err) => {
                 console.error(`${err.name}: ${err.message}`);
                 mediaStreamStatus.set(MediaStreamStatusEnum.DISCONNECTED);
                 mediaStream.set(null);
+                throw err;
             });
     },
     async startScreenCapture() {
@@ -74,9 +106,10 @@ export const mediaStreamActions = {
         if (get(mediaStreamStatus) !== MediaStreamStatusEnum.CONNECTED) {
             return;
         }
+        ensureCameraAvailable();
         const constraints = {
             audio: false,
-            video: { width: 1024, height: 1024, deviceId: mediaDevicedID }
+            video: buildVideoConstraints(mediaDevicedID)
         };
         await navigator.mediaDevices
             .getUserMedia(constraints)
@@ -89,9 +122,10 @@ export const mediaStreamActions = {
             });
     },
     async stop() {
-        navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-            stream.getTracks().forEach((track) => track.stop());
-        });
+        const current = get(mediaStream);
+        if (current) {
+            current.getTracks().forEach((track) => track.stop());
+        }
         mediaStreamStatus.set(MediaStreamStatusEnum.DISCONNECTED);
         mediaStream.set(null);
     },

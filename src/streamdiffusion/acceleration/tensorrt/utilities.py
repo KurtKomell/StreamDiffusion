@@ -246,15 +246,61 @@ class Engine:
             self.context = self.engine.create_execution_context()
 
     def allocate_buffers(self, shape_dict=None, device="cuda"):
-        for idx in range(trt_util.get_bindings_per_profile(self.engine)):
-            binding = self.engine[idx]
+        def safe_getattr(obj, attr):
+            try:
+                return getattr(obj, attr)
+            except Exception:
+                return None
+
+        total_bindings = safe_getattr(self.engine, "num_bindings")
+        if total_bindings is None:
+            get_nb_bindings = safe_getattr(self.engine, "get_nb_bindings")
+            if callable(get_nb_bindings):
+                total_bindings = get_nb_bindings()
+        if total_bindings is None:
+            total_bindings = safe_getattr(self.engine, "num_io_tensors")
+        if total_bindings is None:
+            raise AttributeError("TensorRT engine does not expose binding count")
+
+        num_profiles = safe_getattr(self.engine, "num_optimization_profiles")
+        if num_profiles:
+            bindings_per_profile = total_bindings // num_profiles
+            profile_index = getattr(self.context, "active_optimization_profile", 0)
+        else:
+            bindings_per_profile = total_bindings
+            profile_index = 0
+        start_binding = profile_index * bindings_per_profile
+        end_binding = start_binding + bindings_per_profile
+
+        for idx in range(start_binding, end_binding):
+            if hasattr(self.engine, "get_binding_name"):
+                binding = self.engine.get_binding_name(idx)
+            elif hasattr(self.engine, "get_tensor_name"):
+                binding = self.engine.get_tensor_name(idx)
+            else:
+                binding = self.engine[idx]
             if shape_dict and binding in shape_dict:
                 shape = shape_dict[binding]
             else:
-                shape = self.engine.get_binding_shape(binding)
-            dtype = trt.nptype(self.engine.get_binding_dtype(binding))
-            if self.engine.binding_is_input(binding):
-                self.context.set_binding_shape(idx, shape)
+                if hasattr(self.engine, "get_binding_shape"):
+                    shape = self.engine.get_binding_shape(binding)
+                else:
+                    shape = self.engine.get_tensor_shape(binding)
+            if hasattr(self.engine, "get_binding_dtype"):
+                dtype = trt.nptype(self.engine.get_binding_dtype(binding))
+            else:
+                dtype = trt.nptype(self.engine.get_tensor_dtype(binding))
+
+            if hasattr(self.engine, "binding_is_input"):
+                is_input = self.engine.binding_is_input(binding)
+            else:
+                is_input = self.engine.get_tensor_mode(binding) == trt.TensorIOMode.INPUT
+
+            if is_input:
+                if hasattr(self.context, "set_binding_shape"):
+                    self.context.set_binding_shape(idx, shape)
+                else:
+                    self.context.set_input_shape(binding, shape)
             tensor = torch.empty(tuple(shape), dtype=numpy_to_torch_dtype_dict[dtype]).to(device=device)
             self.tensors[binding] = tensor
 
@@ -413,17 +459,31 @@ def export_onnx(
 ):
     with torch.inference_mode(), torch.autocast("cuda"):
         inputs = model_data.get_sample_input(opt_batch_size, opt_image_height, opt_image_width)
-        torch.onnx.export(
-            model,
-            inputs,
-            onnx_path,
-            export_params=True,
-            opset_version=onnx_opset,
-            do_constant_folding=True,
-            input_names=model_data.get_input_names(),
-            output_names=model_data.get_output_names(),
-            dynamic_axes=model_data.get_dynamic_axes(),
-        )
+        try:
+            torch.onnx.export(
+                model,
+                inputs,
+                onnx_path,
+                export_params=True,
+                opset_version=onnx_opset,
+                do_constant_folding=True,
+                input_names=model_data.get_input_names(),
+                output_names=model_data.get_output_names(),
+                dynamic_axes=model_data.get_dynamic_axes(),
+                dynamo=False,
+            )
+        except TypeError:
+            torch.onnx.export(
+                model,
+                inputs,
+                onnx_path,
+                export_params=True,
+                opset_version=onnx_opset,
+                do_constant_folding=True,
+                input_names=model_data.get_input_names(),
+                output_names=model_data.get_output_names(),
+                dynamic_axes=model_data.get_dynamic_axes(),
+            )
     del model
     gc.collect()
     torch.cuda.empty_cache()

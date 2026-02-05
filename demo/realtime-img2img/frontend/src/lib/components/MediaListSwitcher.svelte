@@ -11,8 +11,14 @@
     console.log(deviceId);
   }
   onMount(() => {
-    deviceId = $mediaDevices[0].deviceId;
+    if ($mediaDevices.length > 0) {
+      deviceId = $mediaDevices[0].deviceId;
+    }
   });
+
+  $: if (!deviceId && $mediaDevices.length > 0) {
+    deviceId = $mediaDevices[0].deviceId;
+  }
 </script>
 
 <div class="flex items-center justify-center text-xs">
@@ -25,7 +31,7 @@
 
     <Screen classList={''} />
   </button>
-  {#if $mediaDevices}
+  {#if $mediaDevices.length > 0}
     <select
       bind:value={deviceId}
       on:change={() => mediaStreamActions.switchCamera(deviceId)}

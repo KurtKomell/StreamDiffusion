@@ -28,11 +28,11 @@ class Args(NamedTuple):
 MAX_QUEUE_SIZE = int(os.environ.get("MAX_QUEUE_SIZE", 0))
 TIMEOUT = float(os.environ.get("TIMEOUT", 0))
 SAFETY_CHECKER = os.environ.get("SAFETY_CHECKER", None) == "True"
-USE_TAESD = os.environ.get("USE_TAESD", "True") == "True"
 ENGINE_DIR = os.environ.get("ENGINE_DIR", "engines")
 ACCELERATION = os.environ.get("ACCELERATION", "tensorrt")
+USE_TAESD = os.environ.get("USE_TAESD", "True") == "True"
 
-default_host = os.getenv("HOST", "0.0.0.0")
+default_host = os.getenv("HOST", "127.0.0.1")
 default_port = int(os.getenv("PORT", "7860"))
 default_mode = os.getenv("MODE", "default")
 

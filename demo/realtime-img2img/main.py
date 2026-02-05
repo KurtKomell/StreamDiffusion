@@ -107,6 +107,7 @@ class App:
             try:
 
                 async def generate():
+                    fps_last_ts = time.time()
                     while True:
                         last_time = time.time()
                         await self.conn_manager.send_json(
@@ -120,6 +121,14 @@ class App:
                             continue
                         frame = pil_to_frame(image)
                         yield frame
+                        now = time.time()
+                        delta = now - fps_last_ts
+                        if delta > 0:
+                            fps_value = 1.0 / delta
+                            await self.conn_manager.send_json(
+                                user_id, {"status": "fps", "value": fps_value}
+                            )
+                        fps_last_ts = now
                         if self.args.debug:
                             print(f"Time taken: {time.time() - last_time}")
 

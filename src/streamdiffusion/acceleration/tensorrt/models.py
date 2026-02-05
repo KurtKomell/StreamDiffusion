@@ -17,6 +17,19 @@
 # limitations under the License.
 #
 
+import numpy as np
+import onnx
+from onnx import helper as onnx_helper
+
+if not hasattr(onnx_helper, "float32_to_bfloat16"):
+    def float32_to_bfloat16(x):
+        arr = np.array(x, dtype=np.float32)
+        u32 = arr.view(np.uint32)
+        b16 = (u32 >> 16).astype(np.uint16)
+        return b16.item() if b16.shape == () else b16
+
+    onnx_helper.float32_to_bfloat16 = float32_to_bfloat16
+
 import onnx_graphsurgeon as gs
 import torch
 from onnx import shape_inference
