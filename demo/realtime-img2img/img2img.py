@@ -59,10 +59,31 @@ class Pipeline:
         steps: int = Field(
             4,
             ge=1,
-            le=30,
+            le=50,
             title="Steps",
             field="range",
             id="steps",
+            hide=True,
+        )
+        num_inference_steps: int = Field(
+            4,
+            ge=1,
+            le=50,
+            title="Num Inference Steps",
+            field="range",
+            id="num_inference_steps",
+            step=1,
+            values=[x for x in range(50, 0, -1)],
+        )
+        num_inference_steps: int = Field(
+            4,
+            ge=1,
+            le=50,
+            title="Num Inference Steps",
+            field="range",
+            id="num_inference_steps",
+            step=1,
+            values=[x for x in range(50, 0, -1)],
         )
         # negative_prompt: str = Field(
         #     default_negative_prompt,
@@ -84,7 +105,7 @@ class Pipeline:
             use_tiny_vae=args.taesd,
             device=device,
             dtype=torch_dtype,
-            t_index_list=[35, 45],
+            t_index_list=[15],
             frame_buffer_size=1,
             width=params.width,
             height=params.height,
@@ -103,29 +124,27 @@ class Pipeline:
         )
 
         self.last_prompt = default_prompt
-        self.last_steps = 50
+        self.last_steps = int(params.num_inference_steps)
         self.stream.prepare(
             prompt=default_prompt,
             negative_prompt=default_negative_prompt,
-            num_inference_steps=50,
+            num_inference_steps=int(params.num_inference_steps),
             guidance_scale=1.2,
         )
 
     def predict(self, params: "Pipeline.InputParams") -> Image.Image:
-        # Get steps parameter or use default
-        steps = getattr(params, 'steps', 50)
-        
+        # Use only num_inference_steps parameter
+        # Always set steps to 4, but let num_inference_steps be user-controlled
+        params.steps = 4
         # Update num_inference_steps if changed
-        if not hasattr(self, 'last_steps') or self.last_steps != steps:
+        if not hasattr(self, 'last_steps') or self.last_steps != params.num_inference_steps:
             self.stream.prepare(
                 prompt=params.prompt if params.prompt else default_prompt,
                 negative_prompt=default_negative_prompt,
-                num_inference_steps=steps,
+                num_inference_steps=params.num_inference_steps,
                 guidance_scale=1.2,
             )
-            self.last_steps = steps
-        
+            self.last_steps = params.num_inference_steps
         image_tensor = self.stream.preprocess_image(params.image)
         output_image = self.stream(image=image_tensor, prompt=params.prompt)
-
         return output_image
